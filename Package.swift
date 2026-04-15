@@ -4,7 +4,7 @@ import PackageDescription
 let package = Package(
     name: "SpeechToTextApp",
     platforms: [
-        .macOS(.v13)
+        .macOS(.v14)
     ],
     products: [
         .executable(
@@ -12,15 +12,17 @@ let package = Package(
             targets: ["SpeechToTextApp"]
         ),
     ],
-    dependencies: [
-        // API Client
-        // Add later: .package(url: "https://github.com/Alamofire/Alamofire.git", from: "5.0.0"),
-    ],
+    dependencies: [],
     targets: [
         .executableTarget(
             name: "SpeechToTextApp",
             dependencies: [],
             path: "Sources"
+        ),
+        .testTarget(
+            name: "SpeechToTextAppTests",
+            dependencies: ["SpeechToTextApp"],
+            path: "Tests"
         ),
     ]
 )

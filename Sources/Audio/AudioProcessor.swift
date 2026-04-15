@@ -18,13 +18,7 @@ struct AudioProcessor {
 
     static func isValidAudioFile(_ fileURL: URL) -> Bool {
         let asset = AVAsset(url: fileURL)
-        let audioTracks = asset.tracks(withMediaType: .audio)
-
-        guard !audioTracks.isEmpty else {
-            Logger.warning("Keine Audio-Spur in Datei gefunden: \(fileURL.lastPathComponent)", category: Logger.audio)
-            return false
-        }
-
+        
         let duration = asset.duration.seconds
         guard duration >= Constants.Duration.minRecordingDuration else {
             Logger.warning("Aufnahme zu kurz: \(duration)s (min: \(Constants.Duration.minRecordingDuration)s)", category: Logger.audio)
@@ -91,17 +85,6 @@ struct AudioProcessor {
             "fileName": fileURL.lastPathComponent,
             "fileURL": fileURL.absoluteString,
         ]
-
-        if let audioTrack = asset.tracks(withMediaType: .audio).first {
-            let formatDescriptions = audioTrack.formatDescriptions
-            if let formatDescription = formatDescriptions.first as? CMFormatDescription {
-                let basicDescription = CMAudioFormatDescriptionGetStreamBasicDescription(formatDescription)
-                if let basicDesc = basicDescription?.pointee {
-                    metadata["sampleRate"] = basicDesc.mSampleRate
-                    metadata["channels"] = basicDesc.mChannelsPerFrame
-                }
-            }
-        }
 
         return metadata
     }

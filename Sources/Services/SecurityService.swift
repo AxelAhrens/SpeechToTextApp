@@ -1,5 +1,6 @@
 import Foundation
 import Security
+import ServiceManagement
 
 struct SecurityService {
     static let shared = SecurityService()
@@ -60,15 +61,25 @@ struct SecurityService {
 
     // MARK: - Launch at Login
     func enableLaunchAtLogin() {
-        let appPath = Bundle.main.bundlePath
-        SMLoginItemSetEnabled(appPath as CFString, true)
-        Logger.info("Launch at login enabled", category: Logger.general)
+        do {
+            if #available(macOS 13.0, *) {
+                try SMAppService.mainApp.register()
+                Logger.info("Launch at login enabled", category: Logger.general)
+            }
+        } catch {
+            Logger.error("Failed to enable launch at login: \(error.localizedDescription)", category: Logger.general)
+        }
     }
 
     func disableLaunchAtLogin() {
-        let appPath = Bundle.main.bundlePath
-        SMLoginItemSetEnabled(appPath as CFString, false)
-        Logger.info("Launch at login disabled", category: Logger.general)
+        do {
+            if #available(macOS 13.0, *) {
+                try SMAppService.mainApp.unregister()
+                Logger.info("Launch at login disabled", category: Logger.general)
+            }
+        } catch {
+            Logger.error("Failed to disable launch at login: \(error.localizedDescription)", category: Logger.general)
+        }
     }
 
     // MARK: - Validation

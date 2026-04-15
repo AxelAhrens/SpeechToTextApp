@@ -4,30 +4,24 @@ import Combine
 @Observable
 final class AudioRecorder: NSObject {
     private var audioRecorder: AVAudioRecorder?
-    private var audioSession: AVAudioSession
     private var audioURL: URL?
     private var timer: Timer?
 
-    // Observable Properties
     var isRecording: Bool = false
     var recordingDuration: TimeInterval = 0
     var recordingError: String? = nil
 
-    // Subject for publishing events
     let recordingFinished = PassthroughSubject<URL, Error>()
 
     override init() {
-        audioSession = AVAudioSession.sharedInstance()
         super.init()
-        setupAudioSession()
     }
 
     deinit {
-        stopRecording()
+        _ = stopRecording()
         timer?.invalidate()
     }
 
-    // MARK: - Public Methods
     func startRecording() {
         requestMicrophonePermission { [weak self] granted in
             guard granted else {
@@ -54,18 +48,6 @@ final class AudioRecorder: NSObject {
         return url
     }
 
-    // MARK: - Private Methods
-    private func setupAudioSession() {
-        do {
-            try audioSession.setCategory(.record, mode: .measurement, options: [])
-            try audioSession.setActive(true, options: .notifyOthersOnDeactivation)
-            Logger.info("Audio-Session konfiguriert", category: Logger.audio)
-        } catch {
-            Logger.error("Audio-Session Setup fehlgeschlagen: \(error.localizedDescription)", category: Logger.audio)
-            recordingError = "Audio-Setup fehlgeschlagen"
-        }
-    }
-
     private func beginRecording() {
         let fileName = "recording_\(UUID().uuidString).m4a"
         audioURL = Constants.tempAudioDirectory.appendingPathComponent(fileName)
@@ -75,7 +57,6 @@ final class AudioRecorder: NSObject {
             return
         }
 
-        // Create temp directory if needed
         try? FileManager.default.createDirectory(
             at: Constants.tempAudioDirectory,
             withIntermediateDirectories: true
@@ -114,7 +95,6 @@ final class AudioRecorder: NSObject {
 
             self.recordingDuration += 0.1
 
-            // Limit recording to Constants.Duration.maxRecordingDuration
             if self.recordingDuration >= Constants.Duration.maxRecordingDuration {
                 self.stopRecording()
             }
@@ -128,12 +108,11 @@ final class AudioRecorder: NSObject {
     }
 }
 
-// MARK: - AVAudioRecorderDelegate
 extension AudioRecorder: AVAudioRecorderDelegate {
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         if flag {
             if let audioURL = audioURL {
-                Logger.info("Aufnahme abgeschlossen erfolgreich: \(audioURL.lastPathComponent)", category: Logger.audio)
+                Logger.info("Aufnahme abgeschlossen: \(audioURL.lastPathComponent)", category: Logger.audio)
                 recordingFinished.send(audioURL)
             }
         } else {
@@ -154,14 +133,8 @@ extension AudioRecorder: AVAudioRecorderDelegate {
     }
 }
 
-// MARK: - Audio Utilities
 extension AudioRecorder {
-    static func getRecordingPermissionStatus() -> AVAudioSession.RecordPermission {
-        AVAudioSession.sharedInstance().recordPermission
-    }
-
     static func isMicrophoneAvailable() -> Bool {
-        let audioSession = AVAudioSession.sharedInstance()
-        return audioSession.availableInputs?.contains { $0.portType == .builtInMic } ?? false
+        true
     }
 }

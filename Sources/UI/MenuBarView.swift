@@ -4,7 +4,7 @@ import Combine
 struct MenuBarView: View {
     @State var appState: AppState
     @State private var transcriptionService: TranscriptionService?
-    @State private var hotkeyMonitor: HotkeyMonitor?
+    @State private var hotkeyMonitor = HotkeyMonitor.shared
     @State private var subscriptions = Set<AnyCancellable>()
 
     var body: some View {
@@ -177,16 +177,17 @@ struct MenuBarView: View {
 
     private func setupServices() {
         transcriptionService = TranscriptionService()
-        hotkeyMonitor = HotkeyMonitor()
-        hotkeyMonitor?.startMonitoring()
-        hotkeyMonitor?.hotkeyTriggered.sink { mode in
-            appState.selectedMode = mode
-            toggleRecording()
-        }.store(in: &subscriptions)
+        hotkeyMonitor.startMonitoring()
+        hotkeyMonitor.hotkeyTriggered
+            .sink { mode in
+                appState.selectedMode = mode
+                toggleRecording()
+            }
+            .store(in: &subscriptions)
     }
 
     private func cleanupServices() {
-        hotkeyMonitor?.stopMonitoring()
+        hotkeyMonitor.stopMonitoring()
         subscriptions.removeAll()
     }
 

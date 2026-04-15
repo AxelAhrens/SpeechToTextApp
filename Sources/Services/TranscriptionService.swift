@@ -8,7 +8,6 @@ final class TranscriptionService {
     private let whisperAPI = WhisperAPI.shared
     private let claudeAPI = ClaudeAPI.shared
 
-    // Observable state
     var isProcessing: Bool = false
     var lastTranscription: String = ""
     var lastProcessedText: String = ""
@@ -20,7 +19,6 @@ final class TranscriptionService {
         setupRecorderSubscriptions()
     }
 
-    // MARK: - Main Flow
     func startTranscription(mode: TranscriptionMode, apiKey: String) {
         audioRecorder.startRecording()
     }
@@ -35,7 +33,6 @@ final class TranscriptionService {
         defer { isProcessing = false }
 
         do {
-            // Step 1: Transcribe audio
             let transcription = try await whisperAPI.transcribeAudio(
                 fileURL: audioURL,
                 apiKey: apiKey
@@ -44,7 +41,6 @@ final class TranscriptionService {
             lastTranscription = transcription
             Logger.info("Transcription: \(transcription.prefix(100))...", category: Logger.api)
 
-            // Step 2: Process text based on mode
             let processedText = try await processTextForMode(
                 transcription,
                 mode: mode,
@@ -53,7 +49,6 @@ final class TranscriptionService {
 
             lastProcessedText = processedText
 
-            // Step 3: Insert text into focused application
             try accessibilityService.insertText(processedText)
             Logger.info("Text successfully inserted", category: Logger.general)
 
@@ -66,12 +61,12 @@ final class TranscriptionService {
             Logger.error("App Error: \(err.errorDescription ?? "Unknown")", category: Logger.general)
 
         } catch {
-            error = .unknown(error.localizedDescription)
+            let appErr = AppError.unknown(error.localizedDescription)
+            self.error = appErr
             Logger.error("Unexpected error: \(error.localizedDescription)", category: Logger.general)
         }
     }
 
-    // MARK: - Text Processing
     private func processTextForMode(
         _ text: String,
         mode: TranscriptionMode,
@@ -90,19 +85,16 @@ final class TranscriptionService {
         }
     }
 
-    // MARK: - Recorder Subscriptions
     private func setupRecorderSubscriptions() {
         audioRecorder.recordingFinished
-            .sink { [weak self] url in
-                // Handle completion if needed
-                self?.Logger.debug("Recording finished: \(url.lastPathComponent)", category: Logger.audio)
-            } receiveValue: { [weak self] error in
-                self?.error = .recordingFailed(error.localizedDescription)
+            .sink { _ in
+                Logger.debug("Recording finished", category: Logger.audio)
+            } receiveValue: { _ in
+                Logger.error("Recording error", category: Logger.audio)
             }
             .store(in: &subscriptions)
     }
 
-    // MARK: - State
     var isRecording: Bool {
         audioRecorder.isRecording
     }
@@ -111,20 +103,7 @@ final class TranscriptionService {
         audioRecorder.recordingDuration
     }
 
-    // MARK: - Getters
-    func getRecordingPermissionStatus() -> String {
-        let status = AudioRecorder.getRecordingPermissionStatus()
-        return status.debugDescription
-    }
-
     func isMicrophoneAvailable() -> Bool {
         AudioRecorder.isMicrophoneAvailable()
-    }
-}
-
-// MARK: - Extension for Logger access
-extension TranscriptionService {
-    private var Logger: Logger.Type {
-        return Swift.Logger.self
     }
 }
