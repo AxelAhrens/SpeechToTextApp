@@ -4,6 +4,10 @@ import SwiftUI
 struct SpeechToTextApp: App {
     @State private var appState = AppState()
 
+    init() {
+        Logger.logAppStart()
+    }
+
     var body: some Scene {
         MenuBarExtra("SpeechToText", systemImage: "mic.fill") {
             MenuBarView(appState: appState)

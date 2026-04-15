@@ -2,6 +2,7 @@ import SwiftUI
 import Combine
 
 struct MenuBarView: View {
+    @Environment(\.openSettings) private var openSettingsAction
     @State var appState: AppState
     @State private var transcriptionService: TranscriptionService?
     @State private var hotkeyMonitor = HotkeyMonitor.shared
@@ -160,7 +161,7 @@ struct MenuBarView: View {
     }
 
     private func openSettings() {
-        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: NSApp.delegate, from: nil)
+        openSettingsAction()
     }
 
     private func copyLastText() {

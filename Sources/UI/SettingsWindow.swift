@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsWindow: View {
     @State var appState: AppState
     @State private var showAPIKeyField: Bool = false
+    @State private var fileLoggingEnabled: Bool = Foundation.UserDefaults.standard.bool(forKey: Constants.UserDefaults.enableLoggingKey)
 
     var body: some View {
         TabView {
@@ -194,6 +195,49 @@ struct SettingsWindow: View {
                     .padding(.vertical, 8)
                 }
 
+                GroupBox(label: Label("Logging", systemImage: "doc.text")) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Toggle("Vollständiges File-Logging aktivieren", isOn: $fileLoggingEnabled)
+                            .onChange(of: fileLoggingEnabled) { _, newValue in
+                                if newValue {
+                                    Logger.enableFileLogging()
+                                } else {
+                                    Logger.disableFileLogging()
+                                }
+                            }
+
+                        Text("Errors und Warnings werden IMMER protokolliert.")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
+                        HStack(spacing: 8) {
+                            Button(action: openLogFile) {
+                                HStack {
+                                    Image(systemName: "doc.text.magnifyingglass")
+                                    Text("Logfile anzeigen")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+
+                            Button(action: openLogDirectory) {
+                                HStack {
+                                    Image(systemName: "folder")
+                                    Text("Log-Ordner")
+                                }
+                            }
+                            .buttonStyle(.bordered)
+
+                            Spacer()
+                        }
+
+                        Text("Pfad: \(Logger.currentLogFilePath)")
+                            .font(.system(size: 10, design: .monospaced))
+                            .foregroundColor(.gray)
+                            .textSelection(.enabled)
+                    }
+                    .padding(.vertical, 8)
+                }
+
                 Spacer()
             }
             .padding()
@@ -216,8 +260,28 @@ struct SettingsWindow: View {
     }
 
     private func checkAccessibilityPermission() -> Bool {
-        // TODO: Implement actual permission check
         return AXIsProcessTrusted()
+    }
+
+    private func openLogFile() {
+        let path = Logger.currentLogFilePath
+        if FileManager.default.fileExists(atPath: path) {
+            NSWorkspace.shared.open(URL(fileURLWithPath: path))
+        } else {
+            // Logfile existiert noch nicht, erstelle es
+            Logger.info("Logfile manuell geöffnet", category: Logger.general)
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                if FileManager.default.fileExists(atPath: path) {
+                    NSWorkspace.shared.open(URL(fileURLWithPath: path))
+                }
+            }
+        }
+    }
+
+    private func openLogDirectory() {
+        let logDir = Constants.logsDirectory
+        try? FileManager.default.createDirectory(at: logDir, withIntermediateDirectories: true)
+        NSWorkspace.shared.open(logDir)
     }
 }
 
