@@ -1,24 +1,32 @@
 import SwiftUI
+import Combine
 
 struct MenuBarView: View {
     @State var appState: AppState
-    @State private var timer: Timer?
+    @State private var transcriptionService: TranscriptionService?
+    @State private var hotkeyMonitor: HotkeyMonitor?
+    @State private var subscriptions = Set<AnyCancellable>()
 
     var body: some View {
         VStack(spacing: 12) {
-            // MARK: - Title & Status
             HStack {
-                Image(systemName: appState.isRecording ? "mic.fill" : "mic")
-                    .foregroundColor(appState.isRecording ? .red : .primary)
-                    .font(.system(size: 16))
+                if let service = transcriptionService, service.isProcessing {
+                    ProgressView()
+                        .scaleEffect(0.8)
+                } else {
+                    Image(systemName: (transcriptionService?.isRecording ?? false) ? "mic.fill" : "mic")
+                        .foregroundColor((transcriptionService?.isRecording ?? false) ? .red : .primary)
+                        .font(.system(size: 16))
+                }
 
-                Text(appState.isRecording ? "Aufnahme läuft..." : "Bereit")
+                Text((transcriptionService?.isProcessing ?? false) ? "Verarbeitet..." :
+                     (transcriptionService?.isRecording ?? false) ? "Aufnahme läuft..." : "Bereit")
                     .font(.headline)
 
                 Spacer()
 
-                if appState.isRecording {
-                    Text(formatDuration(appState.recordingDuration))
+                if let service = transcriptionService, service.isRecording {
+                    Text(formatDuration(service.recordingDuration))
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundColor(.gray)
@@ -29,7 +37,6 @@ struct MenuBarView: View {
 
             Divider()
 
-            // MARK: - Mode Selection
             VStack(alignment: .leading, spacing: 8) {
                 Text("Modus")
                     .font(.caption)
@@ -54,18 +61,18 @@ struct MenuBarView: View {
 
             Divider()
 
-            // MARK: - Recording Button
             HStack(spacing: 12) {
                 Button(action: toggleRecording) {
                     HStack {
-                        Image(systemName: appState.isRecording ? "stop.circle.fill" : "record.circle.fill")
-                        Text(appState.isRecording ? "Stoppen" : "Aufnahme")
+                        Image(systemName: (transcriptionService?.isRecording ?? false) ? "stop.circle.fill" : "record.circle.fill")
+                        Text((transcriptionService?.isRecording ?? false) ? "Stoppen" : "Aufnahme")
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint(appState.isRecording ? .red : .blue)
+                .tint((transcriptionService?.isRecording ?? false) ? .red : .blue)
+                .disabled(transcriptionService?.isProcessing ?? false)
 
                 Button(action: openSettings) {
                     Image(systemName: "gear")
@@ -75,42 +82,51 @@ struct MenuBarView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
 
-            // MARK: - Last Transcription
-            if !appState.lastTranscription.isEmpty {
+            if let service = transcriptionService, !service.lastProcessedText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
-                    Text("Letzte Transkription")
+                    Text("Letztes Ergebnis")
                         .font(.caption)
                         .foregroundColor(.gray)
 
-                    Text(appState.lastTranscription)
+                    Text(service.lastProcessedText)
                         .font(.caption)
                         .lineLimit(3)
                         .padding(8)
                         .background(Color(.controlBackgroundColor))
                         .cornerRadius(4)
 
-                    Button(action: copyLastTranscription) {
-                        HStack {
-                            Image(systemName: "doc.on.doc")
-                            Text("Kopieren")
+                    HStack(spacing: 8) {
+                        Button(action: copyLastText) {
+                            HStack {
+                                Image(systemName: "doc.on.doc")
+                                Text("Kopieren")
+                            }
+                            .font(.caption)
                         }
-                        .font(.caption)
+                        .buttonStyle(.bordered)
+
+                        Button(action: insertLastText) {
+                            HStack {
+                                Image(systemName: "arrow.right.doc")
+                                Text("Einfügen")
+                            }
+                            .font(.caption)
+                        }
+                        .buttonStyle(.bordered)
                     }
-                    .buttonStyle(.bordered)
                 }
                 .padding(.horizontal)
                 .padding(.vertical, 8)
             }
 
-            // MARK: - Error Alert
-            if appState.showError, let error = appState.lastError {
+            if let service = transcriptionService, let error = service.error {
                 VStack(spacing: 8) {
                     Label(error.errorDescription ?? "Fehler", systemImage: "exclamationmark.circle.fill")
                         .foregroundColor(.red)
                         .font(.caption)
 
                     Button("Schließen") {
-                        appState.clearError()
+                        service.error = nil
                     }
                     .font(.caption)
                 }
@@ -123,64 +139,60 @@ struct MenuBarView: View {
             Spacer()
                 .frame(height: 4)
         }
-        .frame(width: 300, alignment: .top)
+        .frame(width: 320, alignment: .top)
         .padding(.vertical, 8)
-        .onAppear(perform: setupTimer)
-        .onDisappear(perform: stopTimer)
+        .onAppear(perform: setupServices)
+        .onDisappear(perform: cleanupServices)
     }
 
-    // MARK: - Actions
     private func toggleRecording() {
-        if appState.isRecording {
-            stopRecording()
+        guard let service = transcriptionService else { return }
+        if service.isRecording {
+            Task {
+                await service.stopTranscriptionAndProcess(
+                    mode: appState.selectedMode,
+                    apiKey: appState.apiKey
+                )
+            }
         } else {
-            startRecording()
+            service.startTranscription(mode: appState.selectedMode, apiKey: appState.apiKey)
         }
-    }
-
-    private func startRecording() {
-        appState.isRecording = true
-        appState.recordingDuration = 0
-        // TODO: Implement actual recording
-    }
-
-    private func stopRecording() {
-        appState.isRecording = false
-        // TODO: Send to API and insert text
     }
 
     private func openSettings() {
-        NSApp.sendAction(#selector(NSApplication.orderFrontStandardAboutPanel(_:)), to: nil, from: nil)
-        // Trigger Settings window
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            NSApp.sendAction(Selector(("showPreferencesWindow:")), to: NSApp.delegate, from: nil)
+        NSApp.sendAction(Selector(("showPreferencesWindow:")), to: NSApp.delegate, from: nil)
+    }
+
+    private func copyLastText() {
+        guard let service = transcriptionService else { return }
+        ClipboardService.shared.copyText(service.lastProcessedText)
+    }
+
+    private func insertLastText() {
+        guard let service = transcriptionService else { return }
+        Task {
+            try? AccessibilityService.shared.insertText(service.lastProcessedText)
         }
     }
 
-    private func copyLastTranscription() {
-        NSPasteboard.general.setString(appState.lastTranscription, forType: .string)
+    private func setupServices() {
+        transcriptionService = TranscriptionService()
+        hotkeyMonitor = HotkeyMonitor()
+        hotkeyMonitor?.startMonitoring()
+        hotkeyMonitor?.hotkeyTriggered.sink { mode in
+            appState.selectedMode = mode
+            toggleRecording()
+        }.store(in: &subscriptions)
     }
 
-    private func setupTimer() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.1, repeats: true) { _ in
-            if appState.isRecording {
-                appState.recordingDuration += 0.1
-            }
-        }
+    private func cleanupServices() {
+        hotkeyMonitor?.stopMonitoring()
+        subscriptions.removeAll()
     }
 
-    private func stopTimer() {
-        timer?.invalidate()
-        timer = nil
-    }
-
-    private func formatDuration(_ seconds: Double) -> String {
+    private func formatDuration(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds) / 60
         let secs = Int(seconds) % 60
         return String(format: "%02d:%02d", minutes, secs)
     }
-}
-
-#Preview {
-    MenuBarView(appState: AppState())
 }
