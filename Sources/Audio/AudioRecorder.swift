@@ -51,7 +51,7 @@ final class AudioRecorder: NSObject {
     }
 
     private func beginRecording() {
-        let fileName = "recording_\(UUID().uuidString).m4a"
+        let fileName = "recording_\(UUID().uuidString).wav"
         let tempDir = Constants.tempAudioDirectory
         audioURL = tempDir.appendingPathComponent(fileName)
 
@@ -63,47 +63,64 @@ final class AudioRecorder: NSObject {
 
         // Temp-Verzeichnis erstellen
         do {
-            try FileManager.default.createDirectory(
-                at: tempDir,
-                withIntermediateDirectories: true
-            )
-            Logger.debug("Temp-Verzeichnis bereit: \(tempDir.path)", category: Logger.audio)
+            try FileManager.default.createDirectory(at: tempDir, withIntermediateDirectories: true)
         } catch {
             recordingError = "Temp-Verzeichnis konnte nicht erstellt werden"
             Logger.error("Temp-Verzeichnis erstellen fehlgeschlagen: \(error.localizedDescription)", category: Logger.audio)
             return
         }
 
+        // Schreibbarkeit prüfen
+        guard FileManager.default.isWritableFile(atPath: tempDir.path) else {
+            Logger.error("Temp-Verzeichnis nicht beschreibbar: \(tempDir.path)", category: Logger.audio)
+            recordingError = "Temp-Verzeichnis nicht beschreibbar"
+            return
+        }
+
+        // Linear PCM (WAV) -- zuverlässiger als AAC, wird von Whisper unterstützt
         let settings: [String: Any] = [
-            AVFormatIDKey: Int(kAudioFormatMPEG4AAC),
+            AVFormatIDKey: Int(kAudioFormatLinearPCM),
             AVSampleRateKey: Constants.Audio.sampleRate,
-            AVNumberOfChannelsKey: Constants.Audio.channels,
-            AVEncoderBitRateKey: Constants.Audio.bitRate,
+            AVNumberOfChannelsKey: 1,
+            AVLinearPCMBitDepthKey: 16,
+            AVLinearPCMIsFloatKey: false,
+            AVLinearPCMIsBigEndianKey: false,
         ]
+
+        Logger.debug("Audio-Settings: WAV 16kHz 16bit Mono", category: Logger.audio)
+        Logger.debug("Ziel-Datei: \(audioURL.path)", category: Logger.audio)
 
         // AVAudioRecorder erstellen
         do {
             audioRecorder = try AVAudioRecorder(url: audioURL, settings: settings)
             audioRecorder?.delegate = self
-            Logger.debug("AVAudioRecorder erstellt: \(audioURL.lastPathComponent)", category: Logger.audio)
+            audioRecorder?.isMeteringEnabled = true
+            Logger.debug("AVAudioRecorder erstellt", category: Logger.audio)
         } catch {
-            recordingError = "AVAudioRecorder konnte nicht erstellt werden: \(error.localizedDescription)"
+            recordingError = "AVAudioRecorder Fehler: \(error.localizedDescription)"
             Logger.error("AVAudioRecorder init fehlgeschlagen: \(error.localizedDescription)", category: Logger.audio)
+            Logger.error("NSError details: \(error)", category: Logger.audio)
             return
         }
 
-        // Vorbereiten (reserviert Hardware-Ressourcen)
-        guard audioRecorder?.prepareToRecord() ?? false else {
-            recordingError = "Mikrofon konnte nicht vorbereitet werden"
-            Logger.error("prepareToRecord() fehlgeschlagen. Mikrofon eventuell nicht verfügbar oder belegt.", category: Logger.audio)
-            return
+        // Vorbereiten
+        let prepared = audioRecorder?.prepareToRecord() ?? false
+        if !prepared {
+            // Fallback: Trotzdem record() versuchen
+            Logger.warning("prepareToRecord() gab false zurück, versuche record() direkt...", category: Logger.audio)
+        } else {
+            Logger.debug("prepareToRecord() erfolgreich", category: Logger.audio)
         }
-        Logger.debug("prepareToRecord() erfolgreich", category: Logger.audio)
 
         // Aufnahme starten
         guard audioRecorder?.record() ?? false else {
             recordingError = "Aufnahme konnte nicht gestartet werden"
-            Logger.error("record() gab false zurück. Mögliche Ursachen: Mikrofon belegt, keine Berechtigung, Audio-Hardware-Problem.", category: Logger.audio)
+            Logger.error("record() gab false zurück.", category: Logger.audio)
+            Logger.error("audioRecorder.isRecording: \(audioRecorder?.isRecording ?? false)", category: Logger.audio)
+            Logger.error("audioRecorder.url: \(audioRecorder?.url.path ?? "nil")", category: Logger.audio)
+
+            // Diagnose: Verfügbare Audio-Eingabegeräte loggen
+            logAvailableAudioDevices()
             return
         }
 
@@ -122,7 +139,7 @@ final class AudioRecorder: NSObject {
 
             if self.recordingDuration >= Constants.Duration.maxRecordingDuration {
                 _ = self.stopRecording()
-                Logger.warning("Max-Aufnahmedauer erreicht (\(Constants.Duration.maxRecordingDuration)s), automatisch gestoppt.", category: Logger.audio)
+                Logger.warning("Max-Aufnahmedauer erreicht, automatisch gestoppt.", category: Logger.audio)
             }
         }
     }
@@ -130,7 +147,7 @@ final class AudioRecorder: NSObject {
     private func requestMicrophonePermission(completion: @escaping (Bool) -> Void) {
         switch AVCaptureDevice.authorizationStatus(for: .audio) {
         case .authorized:
-            Logger.debug("Mikrofon-Berechtigung: bereits erteilt", category: Logger.audio)
+            Logger.debug("Mikrofon-Berechtigung: erteilt", category: Logger.audio)
             completion(true)
         case .notDetermined:
             Logger.info("Mikrofon-Berechtigung wird angefragt...", category: Logger.audio)
@@ -139,14 +156,30 @@ final class AudioRecorder: NSObject {
                 completion(granted)
             }
         case .denied:
-            Logger.error("Mikrofon-Berechtigung: verweigert. Bitte in Systemeinstellungen aktivieren.", category: Logger.audio)
+            Logger.error("Mikrofon-Berechtigung: verweigert. Systemeinstellungen > Datenschutz > Mikrofon", category: Logger.audio)
             completion(false)
         case .restricted:
-            Logger.error("Mikrofon-Berechtigung: eingeschränkt (Kindersicherung o.ä.)", category: Logger.audio)
+            Logger.error("Mikrofon-Berechtigung: eingeschränkt", category: Logger.audio)
             completion(false)
         @unknown default:
             Logger.error("Mikrofon-Berechtigung: unbekannter Status", category: Logger.audio)
             completion(false)
+        }
+    }
+
+    private func logAvailableAudioDevices() {
+        let devices = AVCaptureDevice.DiscoverySession(
+            deviceTypes: [.microphone, .builtInMicrophone],
+            mediaType: .audio,
+            position: .unspecified
+        ).devices
+
+        if devices.isEmpty {
+            Logger.error("KEINE Audio-Eingabegeräte gefunden!", category: Logger.audio)
+        } else {
+            for device in devices {
+                Logger.info("Audio-Gerät: \(device.localizedName) (ID: \(device.uniqueID))", category: Logger.audio)
+            }
         }
     }
 }
@@ -154,7 +187,8 @@ final class AudioRecorder: NSObject {
 extension AudioRecorder: AVAudioRecorderDelegate {
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
         if flag, let audioURL = audioURL {
-            Logger.info("Aufnahme abgeschlossen: \(audioURL.lastPathComponent)", category: Logger.audio)
+            let fileSize = (try? FileManager.default.attributesOfItem(atPath: audioURL.path)[.size] as? Int64) ?? 0
+            Logger.info("Aufnahme abgeschlossen: \(audioURL.lastPathComponent), Größe: \(fileSize / 1024)KB", category: Logger.audio)
             recordingFinished.send(audioURL)
         } else {
             Logger.error("Aufnahme fehlgeschlagen (successfully=false)", category: Logger.audio)
