@@ -279,8 +279,7 @@ struct SettingsWindow: View {
     }
 
     private func checkMicrophonePermission() -> Bool {
-        // TODO: Implement actual permission check
-        return true
+        return AudioRecorder.isMicrophoneAvailable()
     }
 
     private func checkAccessibilityPermission() -> Bool {

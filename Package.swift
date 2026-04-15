@@ -17,7 +17,8 @@ let package = Package(
         .executableTarget(
             name: "SpeechToTextApp",
             dependencies: [],
-            path: "Sources"
+            path: "Sources",
+            exclude: ["Resources/Info.plist", "Resources/SpeechToTextApp.entitlements"]
         ),
         .testTarget(
             name: "SpeechToTextAppTests",
