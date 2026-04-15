@@ -103,6 +103,30 @@ struct SettingsWindow: View {
 
             // MARK: - Hotkeys Tab
             VStack(spacing: 16) {
+                GroupBox(label: Label("Verhalten", systemImage: "hand.tap")) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Picker("Hotkey-Modus", selection: $appState.hotkeyBehavior) {
+                            ForEach(HotkeyBehavior.allCases, id: \.self) { behavior in
+                                Text(behavior.displayName).tag(behavior)
+                            }
+                        }
+                        .pickerStyle(.segmented)
+                        .onChange(of: appState.hotkeyBehavior) { _, newValue in
+                            GlobalHotkeyManager.shared.behavior = newValue
+                            GlobalHotkeyManager.shared.register()
+                        }
+
+                        HStack(spacing: 8) {
+                            Image(systemName: appState.hotkeyBehavior == .toggle ? "arrow.triangle.2.circlepath" : "hand.point.down.fill")
+                                .foregroundColor(.blue)
+                            Text(appState.hotkeyBehavior.description)
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+
                 GroupBox(label: Label("Globale Tastenkürzel", systemImage: "keyboard")) {
                     VStack(alignment: .leading, spacing: 12) {
                         HotKeyRow(
@@ -138,7 +162,7 @@ struct SettingsWindow: View {
                     .padding(.vertical, 8)
                 }
 
-                Text("ℹ️ Hotkeys funktionieren systemweit. Die App muss im Hintergrund laufen.")
+                Text("Hotkeys funktionieren systemweit. Accessibility-Berechtigung erforderlich.")
                     .font(.caption)
                     .foregroundColor(.gray)
                     .padding(.horizontal, 8)

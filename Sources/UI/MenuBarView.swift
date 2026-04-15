@@ -4,30 +4,29 @@ import Combine
 struct MenuBarView: View {
     @Environment(\.openSettings) private var openSettingsAction
     @State var appState: AppState
-    @State private var transcriptionService: TranscriptionService?
-    @State private var hotkeyMonitor = HotkeyMonitor.shared
-    @State private var subscriptions = Set<AnyCancellable>()
+    var transcriptionService: TranscriptionService
 
     var body: some View {
         VStack(spacing: 12) {
+            // MARK: - Header
             HStack {
-                if let service = transcriptionService, service.isProcessing {
+                if transcriptionService.isProcessing {
                     ProgressView()
                         .scaleEffect(0.8)
                 } else {
-                    Image(systemName: (transcriptionService?.isRecording ?? false) ? "mic.fill" : "mic")
-                        .foregroundColor((transcriptionService?.isRecording ?? false) ? .red : .primary)
+                    Image(systemName: transcriptionService.isRecording ? "mic.fill" : "mic")
+                        .foregroundColor(transcriptionService.isRecording ? .red : .primary)
                         .font(.system(size: 16))
                 }
 
-                Text((transcriptionService?.isProcessing ?? false) ? "Verarbeitet..." :
-                     (transcriptionService?.isRecording ?? false) ? "Aufnahme läuft..." : "Bereit")
+                Text(transcriptionService.isProcessing ? "Verarbeitet..." :
+                     transcriptionService.isRecording ? "Aufnahme läuft..." : "Bereit")
                     .font(.headline)
 
                 Spacer()
 
-                if let service = transcriptionService, service.isRecording {
-                    Text(formatDuration(service.recordingDuration))
+                if transcriptionService.isRecording {
+                    Text(formatDuration(transcriptionService.recordingDuration))
                         .font(.caption)
                         .monospacedDigit()
                         .foregroundColor(.gray)
@@ -38,6 +37,7 @@ struct MenuBarView: View {
 
             Divider()
 
+            // MARK: - Mode Selection
             VStack(alignment: .leading, spacing: 8) {
                 Text("Modus")
                     .font(.caption)
@@ -46,14 +46,7 @@ struct MenuBarView: View {
 
                 Picker("Modus", selection: $appState.selectedMode) {
                     ForEach(TranscriptionMode.allCases, id: \.self) { mode in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text(mode.displayName)
-                                .font(.body)
-                            Text(mode.description)
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                        }
-                        .tag(mode)
+                        Text(mode.displayName).tag(mode)
                     }
                 }
                 .pickerStyle(.menu)
@@ -62,20 +55,21 @@ struct MenuBarView: View {
 
             Divider()
 
+            // MARK: - Record Button + Settings
             HStack(spacing: 12) {
                 Button(action: toggleRecording) {
                     HStack {
-                        Image(systemName: (transcriptionService?.isRecording ?? false) ? "stop.circle.fill" : "record.circle.fill")
-                        Text((transcriptionService?.isRecording ?? false) ? "Stoppen" : "Aufnahme")
+                        Image(systemName: transcriptionService.isRecording ? "stop.circle.fill" : "record.circle.fill")
+                        Text(transcriptionService.isRecording ? "Stoppen" : "Aufnahme")
                     }
                     .frame(maxWidth: .infinity)
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.borderedProminent)
-                .tint((transcriptionService?.isRecording ?? false) ? .red : .blue)
-                .disabled(transcriptionService?.isProcessing ?? false)
+                .tint(transcriptionService.isRecording ? .red : .blue)
+                .disabled(transcriptionService.isProcessing)
 
-                Button(action: openSettings) {
+                Button(action: { openSettingsAction() }) {
                     Image(systemName: "gear")
                 }
                 .buttonStyle(.bordered)
@@ -83,13 +77,26 @@ struct MenuBarView: View {
             .padding(.horizontal)
             .padding(.vertical, 8)
 
-            if let service = transcriptionService, !service.lastProcessedText.isEmpty {
+            // MARK: - Hotkey Hint
+            HStack {
+                Image(systemName: "keyboard")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                Text("⌘⇧1-4 für Schnellstart (\(appState.hotkeyBehavior.displayName))")
+                    .font(.caption2)
+                    .foregroundColor(.gray)
+                Spacer()
+            }
+            .padding(.horizontal)
+
+            // MARK: - Last Result
+            if !transcriptionService.lastProcessedText.isEmpty {
                 VStack(alignment: .leading, spacing: 8) {
                     Text("Letztes Ergebnis")
                         .font(.caption)
                         .foregroundColor(.gray)
 
-                    Text(service.lastProcessedText)
+                    Text(transcriptionService.lastProcessedText)
                         .font(.caption)
                         .lineLimit(3)
                         .padding(8)
@@ -120,14 +127,15 @@ struct MenuBarView: View {
                 .padding(.vertical, 8)
             }
 
-            if let service = transcriptionService, let error = service.error {
+            // MARK: - Error
+            if let error = transcriptionService.error {
                 VStack(spacing: 8) {
                     Label(error.errorDescription ?? "Fehler", systemImage: "exclamationmark.circle.fill")
                         .foregroundColor(.red)
                         .font(.caption)
 
                     Button("Schließen") {
-                        service.error = nil
+                        transcriptionService.error = nil
                     }
                     .font(.caption)
                 }
@@ -142,54 +150,30 @@ struct MenuBarView: View {
         }
         .frame(width: 320, alignment: .top)
         .padding(.vertical, 8)
-        .onAppear(perform: setupServices)
-        .onDisappear(perform: cleanupServices)
     }
 
+    // MARK: - Actions
     private func toggleRecording() {
-        guard let service = transcriptionService else { return }
-        if service.isRecording {
+        if transcriptionService.isRecording {
             Task {
-                await service.stopTranscriptionAndProcess(
+                await transcriptionService.stopTranscriptionAndProcess(
                     mode: appState.selectedMode,
                     apiKey: appState.apiKey
                 )
             }
         } else {
-            service.startTranscription(mode: appState.selectedMode, apiKey: appState.apiKey)
+            transcriptionService.startTranscription(mode: appState.selectedMode, apiKey: appState.apiKey)
         }
-    }
-
-    private func openSettings() {
-        openSettingsAction()
     }
 
     private func copyLastText() {
-        guard let service = transcriptionService else { return }
-        ClipboardService.shared.copyText(service.lastProcessedText)
+        ClipboardService.shared.copyText(transcriptionService.lastProcessedText)
     }
 
     private func insertLastText() {
-        guard let service = transcriptionService else { return }
         Task {
-            try? AccessibilityService.shared.insertText(service.lastProcessedText)
+            try? AccessibilityService.shared.insertText(transcriptionService.lastProcessedText)
         }
-    }
-
-    private func setupServices() {
-        transcriptionService = TranscriptionService()
-        hotkeyMonitor.startMonitoring()
-        hotkeyMonitor.hotkeyTriggered
-            .sink { mode in
-                appState.selectedMode = mode
-                toggleRecording()
-            }
-            .store(in: &subscriptions)
-    }
-
-    private func cleanupServices() {
-        hotkeyMonitor.stopMonitoring()
-        subscriptions.removeAll()
     }
 
     private func formatDuration(_ seconds: TimeInterval) -> String {

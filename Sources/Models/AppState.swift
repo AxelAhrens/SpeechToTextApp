@@ -16,6 +16,12 @@ final class AppState {
         }
     }
 
+    var hotkeyBehavior: HotkeyBehavior = .toggle {
+        didSet {
+            UserDefaults.standard.set(hotkeyBehavior.rawValue, forKey: "hotkeyBehavior")
+        }
+    }
+
     // MARK: - Recording State
     var isRecording: Bool = false
     var recordingDuration: Double = 0
@@ -38,6 +44,11 @@ final class AppState {
         if let modeRaw = UserDefaults.standard.string(forKey: "selectedMode"),
            let mode = TranscriptionMode(rawValue: modeRaw) {
             self.selectedMode = mode
+        }
+
+        if let behaviorRaw = UserDefaults.standard.string(forKey: "hotkeyBehavior"),
+           let behavior = HotkeyBehavior(rawValue: behaviorRaw) {
+            self.hotkeyBehavior = behavior
         }
     }
 
@@ -87,6 +98,29 @@ enum TranscriptionMode: String, CaseIterable {
             return "Wütendes Einsprechen → Professionelle Email"
         case .socialMedia:
             return "Text mit Emojis"
+        }
+    }
+}
+
+enum HotkeyBehavior: String, CaseIterable {
+    case toggle = "toggle"
+    case pushToTalk = "push_to_talk"
+
+    var displayName: String {
+        switch self {
+        case .toggle:
+            return "Toggle"
+        case .pushToTalk:
+            return "Push-to-Talk"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .toggle:
+            return "1x drücken = Start, nochmal drücken = Stop"
+        case .pushToTalk:
+            return "Gedrückt halten = Aufnahme, loslassen = Stop"
         }
     }
 }
