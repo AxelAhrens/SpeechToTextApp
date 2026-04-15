@@ -1,0 +1,48 @@
+# Xcode
+*.pbxproj
+xcuserdata/
+*.xcworkspace/
+DerivedData/
+*.xcarchive
+*.swiftpm
+
+# Swift Package Manager
+.build/
+*.xcodeproj/
+Package.resolved
+
+# IDE
+.DS_Store
+.vscode/
+*.swp
+*.swo
+*~
+.idea/
+
+# Build artifacts
+build/
+dist/
+*.o
+*.a
+*.so
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+.env
+.env.local
+*.tmp
+*~
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Security
+.keys/
+*.pem
+*.key
