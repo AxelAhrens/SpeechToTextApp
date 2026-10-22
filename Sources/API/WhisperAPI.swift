@@ -25,7 +25,7 @@ class WhisperAPI {
             "Authorization": "Bearer \(apiKey)",
         ]
 
-        Logger.info("Starting transcription: \(fileURL.lastPathComponent)", category: Logger.api)
+        Logger.info("Starting transcription", category: Logger.api)
 
         let response: WhisperTranscriptionResponse = try await apiClient.upload(
             url: url,
@@ -34,7 +34,7 @@ class WhisperAPI {
             paramName: "file"
         )
 
-        Logger.info("Transcription complete: \(response.text.prefix(100))...", category: Logger.api)
+        Logger.info("Transcription complete", category: Logger.api)
 
         // Cleanup audio file after successful transcription
         DispatchQueue.global(qos: .background).async {

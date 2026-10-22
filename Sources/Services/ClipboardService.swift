@@ -9,7 +9,7 @@ class ClipboardService {
     func copyText(_ text: String) {
         pasteboard.clearContents()
         pasteboard.setString(text, forType: .string)
-        Logger.info("Text copied to clipboard: \(text.prefix(50))...", category: Logger.general)
+        Logger.info("Text copied to clipboard", category: Logger.general)
     }
 
     // MARK: - Paste from Clipboard

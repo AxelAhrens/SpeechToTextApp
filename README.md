@@ -23,7 +23,7 @@ Native macOS Menübar Speech-to-Text App mit intelligenten Text-Umschreib-Modi, 
 
 ## Requirements
 
-- macOS 13.0+
+- macOS 14.0+ (entspricht `Package.swift`)
 - Swift 5.9+
 - Anthropic API Key (Claude)
 - Microphone

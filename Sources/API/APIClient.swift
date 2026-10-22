@@ -34,7 +34,7 @@ class APIClient {
             request.httpBody = body
         }
 
-        Logger.debug("[\(method.rawValue)] \(url.path)", category: Logger.api)
+        Logger.debug("API request sent", category: Logger.api)
 
         let (data, response) = try await session.data(for: request)
 
@@ -42,8 +42,8 @@ class APIClient {
             throw APIError.invalidResponse
         }
 
-        // Log response status
-        Logger.debug("Response Status: \(httpResponse.statusCode)", category: Logger.api)
+        // Log response arrival without response content
+        Logger.debug("API response received", category: Logger.api)
 
         // Handle errors
         guard (200...299).contains(httpResponse.statusCode) else {
@@ -56,7 +56,7 @@ class APIClient {
             let decoded = try decoder.decode(T.self, from: data)
             return decoded
         } catch {
-            Logger.error("Decoding error: \(error.localizedDescription)", category: Logger.api)
+            Logger.error("Response decoding failed", category: Logger.api)
             throw APIError.decodingError(error.localizedDescription)
         }
     }
@@ -76,7 +76,7 @@ class APIClient {
             otherParams: [:]
         )
 
-        Logger.debug("[MULTIPART] \(url.path)", category: Logger.api)
+        Logger.debug("Multipart upload sent", category: Logger.api)
 
         let (data, response) = try await session.data(for: request)
 
@@ -84,7 +84,7 @@ class APIClient {
             throw APIError.invalidResponse
         }
 
-        Logger.debug("Response Status: \(httpResponse.statusCode)", category: Logger.api)
+        Logger.debug("API response received", category: Logger.api)
 
         guard (200...299).contains(httpResponse.statusCode) else {
             let errorMessage = String(data: data, encoding: .utf8) ?? "Upload failed"
