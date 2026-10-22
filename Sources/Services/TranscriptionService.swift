@@ -39,7 +39,7 @@ final class TranscriptionService {
             )
 
             lastTranscription = transcription
-            Logger.info("Transcription: \(transcription.prefix(100))...", category: Logger.api)
+            Logger.info("Transcription received", category: Logger.api)
 
             let processedText = try await processTextForMode(
                 transcription,
@@ -54,16 +54,16 @@ final class TranscriptionService {
 
         } catch let err as APIError {
             error = .transcriptionFailed(err.errorDescription ?? "Unknown API error")
-            Logger.error("API Error: \(err.errorDescription ?? "Unknown")", category: Logger.api)
+            Logger.error("Transcription API request failed", category: Logger.api)
 
         } catch let err as AppError {
             error = err
-            Logger.error("App Error: \(err.errorDescription ?? "Unknown")", category: Logger.general)
+            Logger.error("Transcription workflow failed", category: Logger.general)
 
         } catch {
             let appErr = AppError.unknown(error.localizedDescription)
             self.error = appErr
-            Logger.error("Unexpected error: \(error.localizedDescription)", category: Logger.general)
+            Logger.error("Unexpected transcription error", category: Logger.general)
         }
     }
 
