@@ -10,6 +10,12 @@ final class AppState {
         }
     }
 
+    var openAIAPIKey: String = "" {
+        didSet {
+            KeychainHelper.save(key: Constants.Keychain.openaiAPIKeyKey, value: openAIAPIKey)
+        }
+    }
+
     var selectedMode: TranscriptionMode = .direct {
         didSet {
             UserDefaults.standard.set(selectedMode.rawValue, forKey: "selectedMode")
@@ -39,6 +45,10 @@ final class AppState {
     private func loadSettings() {
         if let savedKey = KeychainHelper.retrieve(key: "anthropic_api_key") {
             self.apiKey = savedKey
+        }
+
+        if let savedKey = KeychainHelper.retrieve(key: Constants.Keychain.openaiAPIKeyKey) {
+            self.openAIAPIKey = savedKey
         }
 
         if let modeRaw = UserDefaults.standard.string(forKey: "selectedMode"),
