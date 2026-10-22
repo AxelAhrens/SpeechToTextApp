@@ -25,5 +25,9 @@ final class CredentialsTests: XCTestCase {
             "openai-test-only"
         )
         XCTAssertEqual(KeychainHelper.retrieve(key: Constants.Keychain.apiKeyKey), "anthropic-test-only")
+
+        let credentials = ProviderCredentials(appState: appState)
+        XCTAssertEqual(credentials.openAIKey, "openai-test-only")
+        XCTAssertEqual(credentials.anthropicKey, "anthropic-test-only")
     }
 }
