@@ -31,7 +31,8 @@ class WhisperAPI {
             url: url,
             headers: headers,
             fileURL: fileURL,
-            paramName: "file"
+            paramName: "file",
+            otherParams: ["model": Constants.API.whisperModel, "language": "de"]
         )
 
         Logger.info("Transcription complete", category: Logger.api)
