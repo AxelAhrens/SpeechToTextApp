@@ -158,11 +158,11 @@ struct MenuBarView: View {
             Task {
                 await transcriptionService.stopTranscriptionAndProcess(
                     mode: appState.selectedMode,
-                    apiKey: appState.apiKey
+                    credentials: ProviderCredentials(appState: appState)
                 )
             }
         } else {
-            transcriptionService.startTranscription(mode: appState.selectedMode, apiKey: appState.apiKey)
+            transcriptionService.startTranscription()
         }
     }
 

@@ -8,10 +8,11 @@ struct SettingsWindow: View {
     var body: some View {
         TabView {
             // MARK: - API Settings Tab
-            VStack(spacing: 16) {
-                GroupBox(label: Label("Anthropic API", systemImage: "key.fill")) {
+            ScrollView {
+                VStack(spacing: 16) {
+                    GroupBox(label: Label("Anthropic API", systemImage: "key.fill")) {
                     VStack(alignment: .leading, spacing: 12) {
-                        Text("API Key für Claude Transkription und Text-Verarbeitung")
+                        Text("API Key für Claude Text-Verarbeitung")
                             .font(.caption)
                             .foregroundColor(.gray)
 
@@ -34,8 +35,9 @@ struct SettingsWindow: View {
                                 Spacer()
 
                                 if !appState.apiKey.isEmpty {
-                                    Label("Gespeichert", systemImage: "checkmark.circle.fill")
-                                        .foregroundColor(.green)
+                                    Label(anthropicKeySaved ? "Gespeichert" : "Nicht gespeichert",
+                                          systemImage: anthropicKeySaved ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                        .foregroundColor(anthropicKeySaved ? .green : .red)
                                         .font(.caption)
                                 }
                             }
@@ -52,6 +54,26 @@ struct SettingsWindow: View {
                                 .frame(maxWidth: .infinity)
                             }
                             .buttonStyle(.bordered)
+                        }
+                    }
+                    .padding(.vertical, 8)
+                }
+
+                GroupBox(label: Label("OpenAI API", systemImage: "waveform")) {
+                    VStack(alignment: .leading, spacing: 12) {
+                        Text("API Key für Whisper-Transkription (auch im Direkt-Modus erforderlich)")
+                            .font(.caption)
+                            .foregroundColor(.gray)
+
+                        SecureField("OpenAI API Key", text: $appState.openAIAPIKey)
+                            .textFieldStyle(.roundedBorder)
+                            .monospaced()
+
+                        if !appState.openAIAPIKey.isEmpty {
+                            Label(openAIKeySaved ? "Gespeichert" : "Nicht gespeichert",
+                                  systemImage: openAIKeySaved ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                                .foregroundColor(openAIKeySaved ? .green : .red)
+                                .font(.caption)
                         }
                     }
                     .padding(.vertical, 8)
@@ -95,8 +117,9 @@ struct SettingsWindow: View {
                 }
 
                 Spacer()
+                }
+                .padding()
             }
-            .padding()
             .tabItem {
                 Label("API", systemImage: "gear")
             }
@@ -270,6 +293,14 @@ struct SettingsWindow: View {
             }
         }
         .frame(width: 500, height: 400)
+    }
+
+    private var anthropicKeySaved: Bool {
+        KeychainHelper.retrieve(key: Constants.Keychain.apiKeyKey) == appState.apiKey
+    }
+
+    private var openAIKeySaved: Bool {
+        KeychainHelper.retrieve(key: Constants.Keychain.openaiAPIKeyKey) == appState.openAIAPIKey
     }
 
     private func openAnthropicConsole() {

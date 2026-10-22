@@ -160,17 +160,22 @@ enum AppError: LocalizedError {
 
 // MARK: - Keychain Helper
 struct KeychainHelper {
-    static func save(key: String, value: String) {
-        let data = value.data(using: .utf8) ?? Data()
-
+    @discardableResult
+    static func save(key: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
-            kSecValueData as String: data,
         ]
+        let update: [String: Any] = [kSecValueData as String: data]
 
-        SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
+        let updateStatus = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if updateStatus == errSecSuccess { return true }
+        guard updateStatus == errSecItemNotFound else { return false }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
     }
 
     static func retrieve(key: String) -> String? {

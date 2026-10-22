@@ -30,4 +30,13 @@ final class CredentialsTests: XCTestCase {
         XCTAssertEqual(credentials.openAIKey, "openai-test-only")
         XCTAssertEqual(credentials.anthropicKey, "anthropic-test-only")
     }
+
+    func testUpdatingExistingKeychainItemKeepsLatestValue() {
+        let key = "test-keychain-update-\(UUID().uuidString)"
+        defer { KeychainHelper.delete(key: key) }
+
+        XCTAssertTrue(KeychainHelper.save(key: key, value: "first-test-value"))
+        XCTAssertTrue(KeychainHelper.save(key: key, value: "second-test-value"))
+        XCTAssertEqual(KeychainHelper.retrieve(key: key), "second-test-value")
+    }
 }

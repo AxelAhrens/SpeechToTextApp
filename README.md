@@ -25,7 +25,8 @@ Native macOS Menübar Speech-to-Text App mit intelligenten Text-Umschreib-Modi, 
 
 - macOS 14.0+ (entspricht `Package.swift`)
 - Swift 5.9+
-- Anthropic API Key (Claude)
+- OpenAI API Key für Whisper-Transkription
+- Anthropic API Key für Claude-Textverarbeitung (außer im Direkt-Modus)
 - Microphone
 
 ## Installation
@@ -37,9 +38,9 @@ cd SpeechToTextApp
 ```
 
 ### 2. API Key Setup
-1. Hole einen Anthropic API Key von [console.anthropic.com](https://console.anthropic.com)
-2. Öffne die App und gehe zu Settings → API
-3. Füge deinen API Key ein (wird sicher im Keychain gespeichert)
+1. Lege einen OpenAI API Key für die Whisper-Transkription und, für die Umschreib-Modi, einen Anthropic API Key an.
+2. Öffne die App und gehe zu Settings → API.
+3. Hinterlege beide Keys getrennt. Die App zeigt „Gespeichert“ erst, wenn der jeweilige Wert im macOS Keychain abrufbar ist. Der Direkt-Modus benötigt nur OpenAI.
 
 ### 3. Build & Run
 ```bash
@@ -61,7 +62,7 @@ Die App wird folgende Berechtigungen anfordern:
 ## Nutzung
 
 ### Schritt 1: API Key eingeben
-Settings → API → Anthropic API Key eingeben
+Settings → API → OpenAI API Key eingeben; für Umschreib-Modi zusätzlich Anthropic API Key
 
 ### Schritt 2: Hotkey nutzen
 Drücke einen der globalen Hotkeys:
