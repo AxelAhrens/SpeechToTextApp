@@ -22,3 +22,9 @@ jobs:
         run: swift build
       - name: Test
         run: swift test
+      - name: Package local macOS app
+        run: bash Scripts/package-local-app.sh
+      - name: Check app bundle
+        run: |
+          test -x .build/local/SpeechToTextApp.app/Contents/MacOS/SpeechToTextApp
+          codesign --verify --strict --verbose=2 .build/local/SpeechToTextApp.app
