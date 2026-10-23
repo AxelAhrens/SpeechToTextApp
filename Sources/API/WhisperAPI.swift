@@ -37,11 +37,6 @@ class WhisperAPI {
 
         Logger.info("Transcription complete", category: Logger.api)
 
-        // Cleanup audio file after successful transcription
-        DispatchQueue.global(qos: .background).async {
-            AudioProcessor.cleanupAudioFile(fileURL)
-        }
-
         return response.text
     }
 }

@@ -1,65 +1,67 @@
 import AVFoundation
-import Combine
 
 @Observable
 final class AudioRecorder: NSObject {
     private var audioRecorder: AVAudioRecorder?
-    private var audioURL: URL?
     private var timer: Timer?
+    private var pendingStartID: UUID?
 
     var isRecording: Bool = false
     var recordingDuration: TimeInterval = 0
     var recordingError: String? = nil
-
-    let recordingFinished = PassthroughSubject<URL, Error>()
 
     override init() {
         super.init()
     }
 
     deinit {
-        _ = stopRecording()
+        if let abandonedURL = stopRecording() {
+            AudioProcessor.cleanupAudioFile(abandonedURL)
+        }
         timer?.invalidate()
     }
 
     func startRecording() {
+        guard !isRecording, pendingStartID == nil, audioRecorder == nil else { return }
+        let requestID = UUID()
+        pendingStartID = requestID
         requestMicrophonePermission { [weak self] granted in
-            guard let self else { return }
-            guard granted else {
-                self.recordingError = "Mikrofon-Zugriff verweigert"
-                Logger.error("Mikrofon-Zugriff verweigert. Bitte in Systemeinstellungen > Datenschutz > Mikrofon aktivieren.", category: Logger.audio)
-                return
-            }
-
-            DispatchQueue.main.async {
+            DispatchQueue.main.async { [weak self] in
+                guard let self, self.pendingStartID == requestID else { return }
+                self.pendingStartID = nil
+                guard granted else {
+                    self.recordingError = "Mikrofon-Zugriff verweigert"
+                    Logger.error("Mikrofon-Zugriff verweigert. Bitte in Systemeinstellungen > Datenschutz > Mikrofon aktivieren.", category: Logger.audio)
+                    return
+                }
                 self.beginRecording()
             }
         }
     }
 
     func stopRecording() -> URL? {
-        guard isRecording else { return nil }
-        audioRecorder?.stop()
+        guard isRecording, let recorder = audioRecorder else {
+            pendingStartID = nil
+            return nil
+        }
+        let url = recorder.url
+        // Transfer file ownership to the caller before stop() can trigger a delegate callback.
+        audioRecorder = nil
         isRecording = false
         timer?.invalidate()
         timer = nil
+        recorder.stop()
 
-        let url = audioURL
-        Logger.info("Aufnahme gestoppt: \(url?.lastPathComponent ?? "unknown"), Dauer: \(String(format: "%.1f", recordingDuration))s", category: Logger.audio)
+        Logger.info("Aufnahme gestoppt", category: Logger.audio)
 
         return url
     }
 
     private func beginRecording() {
+        guard !isRecording, audioRecorder == nil else { return }
         let fileName = "recording_\(UUID().uuidString).wav"
         let tempDir = Constants.tempAudioDirectory
-        audioURL = tempDir.appendingPathComponent(fileName)
-
-        guard let audioURL = audioURL else {
-            recordingError = "Fehler beim Erstellen der Aufnahmedatei"
-            Logger.error("audioURL ist nil", category: Logger.audio)
-            return
-        }
+        let audioURL = tempDir.appendingPathComponent(fileName)
 
         // Temp-Verzeichnis erstellen
         do {
@@ -100,6 +102,9 @@ final class AudioRecorder: NSObject {
             recordingError = "AVAudioRecorder Fehler: \(error.localizedDescription)"
             Logger.error("AVAudioRecorder init fehlgeschlagen: \(error.localizedDescription)", category: Logger.audio)
             Logger.error("NSError details: \(error)", category: Logger.audio)
+            if FileManager.default.fileExists(atPath: audioURL.path) {
+                AudioProcessor.cleanupAudioFile(audioURL)
+            }
             return
         }
 
@@ -121,6 +126,12 @@ final class AudioRecorder: NSObject {
 
             // Diagnose: Verfügbare Audio-Eingabegeräte loggen
             logAvailableAudioDevices()
+            let failedRecorder = audioRecorder
+            audioRecorder = nil
+            failedRecorder?.stop()
+            if FileManager.default.fileExists(atPath: audioURL.path) {
+                AudioProcessor.cleanupAudioFile(audioURL)
+            }
             return
         }
 
@@ -138,7 +149,9 @@ final class AudioRecorder: NSObject {
             self.recordingDuration += 0.1
 
             if self.recordingDuration >= Constants.Duration.maxRecordingDuration {
-                _ = self.stopRecording()
+                if let abandonedURL = self.stopRecording() {
+                    AudioProcessor.cleanupAudioFile(abandonedURL)
+                }
                 Logger.warning("Max-Aufnahmedauer erreicht, automatisch gestoppt.", category: Logger.audio)
             }
         }
@@ -186,24 +199,26 @@ final class AudioRecorder: NSObject {
 
 extension AudioRecorder: AVAudioRecorderDelegate {
     func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
-        if flag, let audioURL = audioURL {
-            let fileSize = (try? FileManager.default.attributesOfItem(atPath: audioURL.path)[.size] as? Int64) ?? 0
-            Logger.info("Aufnahme abgeschlossen: \(audioURL.lastPathComponent), Größe: \(fileSize / 1024)KB", category: Logger.audio)
-            recordingFinished.send(audioURL)
-        } else {
-            Logger.error("Aufnahme fehlgeschlagen (successfully=false)", category: Logger.audio)
-            let error = NSError(domain: "AudioRecorder", code: -1, userInfo: [NSLocalizedDescriptionKey: "Aufnahme fehlgeschlagen"])
-            recordingFinished.send(completion: .failure(error))
-        }
+        guard audioRecorder === recorder else { return }
+        audioRecorder = nil
         isRecording = false
+        timer?.invalidate()
+        timer = nil
+        recordingError = flag ? "Aufnahme unerwartet beendet" : "Aufnahme fehlgeschlagen"
+        AudioProcessor.cleanupAudioFile(recorder.url)
+        Logger.error("Aufnahme ohne Verarbeitung beendet", category: Logger.audio)
     }
 
     func audioRecorderEncodeErrorDidOccur(_ recorder: AVAudioRecorder, error: Error?) {
-        if let error = error {
-            recordingError = error.localizedDescription
-            Logger.error("Audio-Encoding-Fehler: \(error.localizedDescription)", category: Logger.audio)
-        }
+        guard audioRecorder === recorder else { return }
+        audioRecorder = nil
         isRecording = false
+        timer?.invalidate()
+        timer = nil
+        recordingError = error?.localizedDescription ?? "Audio-Encoding-Fehler"
+        recorder.stop()
+        AudioProcessor.cleanupAudioFile(recorder.url)
+        Logger.error("Audio-Encoding-Fehler", category: Logger.audio)
     }
 }
 

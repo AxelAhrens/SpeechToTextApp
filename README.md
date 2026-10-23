@@ -181,7 +181,7 @@ Body: {
 - Lokal nur im RAM während der Nutzung
 
 🔒 **Audio:**
-- Aufnahme-Dateien liegen vorübergehend im lokalen Temp-Verzeichnis. Eine automatische Löschung nach der Transkription ist noch nicht implementiert.
+- Aufnahme-Dateien liegen während der Verarbeitung im lokalen Temp-Verzeichnis und werden danach auch bei einem Verarbeitungsfehler gelöscht. Bei Absturz oder fehlgeschlagener Löschung können Dateien zurückbleiben.
 
 ## Lizenz
 
