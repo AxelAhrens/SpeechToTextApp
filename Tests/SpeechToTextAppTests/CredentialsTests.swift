@@ -3,17 +3,16 @@ import XCTest
 
 final class CredentialsTests: XCTestCase {
     func testOpenAIAndAnthropicKeysRemainIndependent() {
-        let appState = AppState()
-        let previousAnthropicKey = appState.apiKey
-        let previousOpenAIKey = KeychainHelper.retrieve(key: Constants.Keychain.openaiAPIKeyKey)
+        let anthropicAccount = "test-anthropic-\(UUID().uuidString)"
+        let openAIAccount = "test-openai-\(UUID().uuidString)"
         defer {
-            appState.apiKey = previousAnthropicKey
-            if let previousOpenAIKey {
-                appState.openAIAPIKey = previousOpenAIKey
-            } else {
-                KeychainHelper.delete(key: Constants.Keychain.openaiAPIKeyKey)
-            }
+            KeychainHelper.delete(key: anthropicAccount)
+            KeychainHelper.delete(key: openAIAccount)
         }
+        let appState = AppState(
+            anthropicKeyAccount: anthropicAccount,
+            openAIKeyAccount: openAIAccount
+        )
 
         appState.apiKey = "anthropic-test-only"
         appState.openAIAPIKey = "openai-test-only"
@@ -21,10 +20,10 @@ final class CredentialsTests: XCTestCase {
         XCTAssertEqual(appState.apiKey, "anthropic-test-only")
         XCTAssertEqual(appState.openAIAPIKey, "openai-test-only")
         XCTAssertEqual(
-            KeychainHelper.retrieve(key: Constants.Keychain.openaiAPIKeyKey),
+            KeychainHelper.retrieve(key: openAIAccount),
             "openai-test-only"
         )
-        XCTAssertEqual(KeychainHelper.retrieve(key: Constants.Keychain.apiKeyKey), "anthropic-test-only")
+        XCTAssertEqual(KeychainHelper.retrieve(key: anthropicAccount), "anthropic-test-only")
 
         let credentials = ProviderCredentials(appState: appState)
         XCTAssertEqual(credentials.openAIKey, "openai-test-only")
