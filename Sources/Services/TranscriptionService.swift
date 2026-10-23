@@ -1,5 +1,4 @@
 import Foundation
-import Combine
 
 @Observable
 final class TranscriptionService {
@@ -12,12 +11,6 @@ final class TranscriptionService {
     var lastTranscription: String = ""
     var lastProcessedText: String = ""
     var error: AppError? = nil
-
-    private var subscriptions = Set<AnyCancellable>()
-
-    init() {
-        setupRecorderSubscriptions()
-    }
 
     func startTranscription() {
         audioRecorder.startRecording()
@@ -33,24 +26,26 @@ final class TranscriptionService {
         defer { isProcessing = false }
 
         do {
-            let transcription = try await whisperAPI.transcribeAudio(
-                fileURL: audioURL,
-                apiKey: credentials.openAIKey
-            )
+            try await TemporaryAudioFile.withCleanup(at: audioURL) {
+                let transcription = try await whisperAPI.transcribeAudio(
+                    fileURL: audioURL,
+                    apiKey: credentials.openAIKey
+                )
 
-            lastTranscription = transcription
-            Logger.info("Transcription received", category: Logger.api)
+                lastTranscription = transcription
+                Logger.info("Transcription received", category: Logger.api)
 
-            let processedText = try await processTextForMode(
-                transcription,
-                mode: mode,
-                apiKey: credentials.anthropicKey
-            )
+                let processedText = try await processTextForMode(
+                    transcription,
+                    mode: mode,
+                    apiKey: credentials.anthropicKey
+                )
 
-            lastProcessedText = processedText
+                lastProcessedText = processedText
 
-            try accessibilityService.insertText(processedText)
-            Logger.info("Text successfully inserted", category: Logger.general)
+                try accessibilityService.insertText(processedText)
+                Logger.info("Text successfully inserted", category: Logger.general)
+            }
 
         } catch let err as APIError {
             error = .transcriptionFailed(err.errorDescription ?? "Unknown API error")
@@ -83,16 +78,6 @@ final class TranscriptionService {
                 apiKey: apiKey
             )
         }
-    }
-
-    private func setupRecorderSubscriptions() {
-        audioRecorder.recordingFinished
-            .sink { _ in
-                Logger.debug("Recording finished", category: Logger.audio)
-            } receiveValue: { _ in
-                Logger.error("Recording error", category: Logger.audio)
-            }
-            .store(in: &subscriptions)
     }
 
     var isRecording: Bool {
