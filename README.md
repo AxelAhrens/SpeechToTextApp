@@ -37,25 +37,25 @@ git clone https://github.com/AxelAhrens/SpeechToTextApp.git
 cd SpeechToTextApp
 ```
 
-### 2. API Key Setup
+### 2. Als lokale macOS-App bauen und starten
+```bash
+bash Scripts/package-local-app.sh
+open .build/local/SpeechToTextApp.app
+```
+
+Das Skript baut ein `.app`-Bundle mit Mikrofon-Berechtigungstext und signiert es **ad hoc für den lokalen Gebrauch**. Es ist keine signierte/notarisierte Download-Version für andere Macs. Starte es auf dem Mac, auf dem du es benutzen möchtest; bei Neubauten können macOS-Berechtigungen erneut erforderlich sein. Die CI prüft die Bundle-Struktur und Signatur, kann aber Mikrofon und Bedienung nicht interaktiv testen. Wenn ein abgebrochener Build den nächsten mit einer `.build/local/.package-local-app.lock`-Meldung blockiert, prüfe zuerst, ob noch ein Build läuft. Prüfe gegebenenfalls `.build/local/.bundle.*/previous.app` auf das vorherige Bundle, stelle es wieder her und entferne erst danach die verwaiste Sperre.
+
+### 3. API Keys einrichten
 1. Lege einen OpenAI API Key für die Whisper-Transkription und, für die Umschreib-Modi, einen Anthropic API Key an.
 2. Öffne die App und gehe zu Settings → API.
 3. Hinterlege beide Keys getrennt. Die App zeigt „Gespeichert“ erst, wenn der jeweilige Wert im macOS Keychain abrufbar ist. Der Direkt-Modus benötigt nur OpenAI.
 
-### 3. Build & Run
-```bash
-# Mit Swift Package Manager
-swift build
-swift run SpeechToTextApp
-
-# Oder in Xcode
-open Package.swift
-```
-
 ### 4. Berechtigungen
-Die App wird folgende Berechtigungen anfordern:
-- **Microphone** – Für Sprachaufnahme
-- **Accessibility** – Um Text in andere Apps einzufügen
+Für die Benutzung benötigt die App folgende Freigaben in den macOS-Systemeinstellungen:
+- **Mikrofon** – Für die Sprachaufnahme (Dialog beim ersten Zugriff).
+- **Bedienungshilfen** – Zum Einfügen in andere Apps; bei Bedarf unter *Datenschutz & Sicherheit → Bedienungshilfen* für SpeechToTextApp aktivieren.
+
+Teste anschließend Aufnahme und Einfügen in eine zweite App. Diese Prüfung auf einem echten Mac ist noch offen.
 
 > ℹ️ Diese Berechtigungen sind notwendig für die Kernfunktionalität!
 
@@ -181,8 +181,7 @@ Body: {
 - Lokal nur im RAM während der Nutzung
 
 🔒 **Audio:**
-- Wird nach Transkription sofort gelöscht
-- Nicht persistent gespeichert
+- Aufnahme-Dateien liegen vorübergehend im lokalen Temp-Verzeichnis. Eine automatische Löschung nach der Transkription ist noch nicht implementiert.
 
 ## Lizenz
 

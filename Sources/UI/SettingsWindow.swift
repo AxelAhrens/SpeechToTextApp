@@ -235,7 +235,7 @@ struct SettingsWindow: View {
                             .font(.caption)
                             .foregroundColor(.gray)
 
-                        Text("Audio-Dateien werden nach der Verarbeitung automatisch gelöscht.")
+                        Text("Audio-Aufnahmen liegen im temporären Verzeichnis; automatische Löschung ist noch nicht implementiert.")
                             .font(.caption)
                             .foregroundColor(.gray)
                     }
