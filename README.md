@@ -43,7 +43,7 @@ bash Scripts/package-local-app.sh
 open .build/local/SpeechToTextApp.app
 ```
 
-Das Skript baut ein `.app`-Bundle mit Mikrofon-Berechtigungstext und signiert es **ad hoc für den lokalen Gebrauch**. Es ist keine signierte/notarisierte Download-Version für andere Macs. Starte es auf dem Mac, auf dem du es benutzen möchtest; bei Neubauten können macOS-Berechtigungen erneut erforderlich sein. Die CI prüft die Bundle-Struktur und Signatur, kann aber Mikrofon und Bedienung nicht interaktiv testen. Wenn ein abgebrochener Build den nächsten mit einer `.build/local/.package-local-app.lock`-Meldung blockiert, prüfe zuerst, ob noch ein Build läuft. Prüfe gegebenenfalls `.build/local/.bundle.*/previous.app` auf das vorherige Bundle, stelle es wieder her und entferne erst danach die verwaiste Sperre.
+Das Skript baut ein `.app`-Bundle mit Mikrofon-Berechtigungstext und signiert es **ad hoc für den lokalen Gebrauch**. Es ist keine signierte/notarisierte Download-Version für andere Macs. Starte es auf dem Mac, auf dem du es benutzen möchtest; bei Neubauten können macOS-Berechtigungen erneut erforderlich sein. Die CI prüft Bundle-Struktur und Signatur sowie einen kurzen Start des App-Prozesses ohne API-Schlüssel. Mikrofonfreigabe, globale Hotkeys und Einfügen in eine andere App kann dieser automatische Test nicht belegen. Wenn ein abgebrochener Build den nächsten mit einer `.build/local/.package-local-app.lock`-Meldung blockiert, prüfe zuerst, ob noch ein Build läuft. Prüfe gegebenenfalls `.build/local/.bundle.*/previous.app` auf das vorherige Bundle, stelle es wieder her und entferne erst danach die verwaiste Sperre.
 
 ### 3. API Keys einrichten
 1. Lege einen OpenAI API Key für die Whisper-Transkription und, für die Umschreib-Modi, einen Anthropic API Key an.

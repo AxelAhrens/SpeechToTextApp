@@ -28,3 +28,5 @@ jobs:
         run: |
           test -x .build/local/SpeechToTextApp.app/Contents/MacOS/SpeechToTextApp
           codesign --verify --strict --verbose=2 .build/local/SpeechToTextApp.app
+      - name: Smoke-test packaged app launch (no API calls)
+        run: python3 Scripts/smoke-test-local-app.py --seconds 5
