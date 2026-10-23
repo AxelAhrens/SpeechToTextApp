@@ -296,11 +296,11 @@ struct SettingsWindow: View {
     }
 
     private var anthropicKeySaved: Bool {
-        KeychainHelper.retrieve(key: Constants.Keychain.apiKeyKey) == appState.apiKey
+        KeychainHelper.retrieve(key: appState.anthropicKeyAccount) == appState.apiKey
     }
 
     private var openAIKeySaved: Bool {
-        KeychainHelper.retrieve(key: Constants.Keychain.openaiAPIKeyKey) == appState.openAIAPIKey
+        KeychainHelper.retrieve(key: appState.openAIKeyAccount) == appState.openAIAPIKey
     }
 
     private func openAnthropicConsole() {

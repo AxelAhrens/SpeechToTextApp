@@ -3,6 +3,9 @@ import Observation
 
 @Observable
 final class AppState {
+    let anthropicKeyAccount: String
+    let openAIKeyAccount: String
+
     // MARK: - Settings
     var apiKey: String = "" {
         didSet {
@@ -12,7 +15,7 @@ final class AppState {
 
     var openAIAPIKey: String = "" {
         didSet {
-            KeychainHelper.save(key: Constants.Keychain.openaiAPIKeyKey, value: openAIAPIKey)
+            KeychainHelper.save(key: openAIKeyAccount, value: openAIAPIKey)
         }
     }
 
@@ -37,17 +40,22 @@ final class AppState {
     var lastError: AppError? = nil
     var showError: Bool = false
 
-    init() {
+    init(
+        anthropicKeyAccount: String = Constants.Keychain.apiKeyKey,
+        openAIKeyAccount: String = Constants.Keychain.openaiAPIKeyKey
+    ) {
+        self.anthropicKeyAccount = anthropicKeyAccount
+        self.openAIKeyAccount = openAIKeyAccount
         loadSettings()
     }
 
     // MARK: - Settings Persistence
     private func loadSettings() {
-        if let savedKey = KeychainHelper.retrieve(key: "anthropic_api_key") {
+        if let savedKey = KeychainHelper.retrieve(key: anthropicKeyAccount) {
             self.apiKey = savedKey
         }
 
-        if let savedKey = KeychainHelper.retrieve(key: Constants.Keychain.openaiAPIKeyKey) {
+        if let savedKey = KeychainHelper.retrieve(key: openAIKeyAccount) {
             self.openAIAPIKey = savedKey
         }
 
@@ -63,7 +71,7 @@ final class AppState {
     }
 
     private func saveAPIKey(_ key: String) {
-        KeychainHelper.save(key: "anthropic_api_key", value: key)
+        KeychainHelper.save(key: anthropicKeyAccount, value: key)
     }
 
     // MARK: - Error Management
