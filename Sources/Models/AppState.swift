@@ -3,10 +3,19 @@ import Observation
 
 @Observable
 final class AppState {
+    let anthropicKeyAccount: String
+    let openAIKeyAccount: String
+
     // MARK: - Settings
     var apiKey: String = "" {
         didSet {
             saveAPIKey(apiKey)
+        }
+    }
+
+    var openAIAPIKey: String = "" {
+        didSet {
+            KeychainHelper.save(key: openAIKeyAccount, value: openAIAPIKey)
         }
     }
 
@@ -31,14 +40,23 @@ final class AppState {
     var lastError: AppError? = nil
     var showError: Bool = false
 
-    init() {
+    init(
+        anthropicKeyAccount: String = Constants.Keychain.apiKeyKey,
+        openAIKeyAccount: String = Constants.Keychain.openaiAPIKeyKey
+    ) {
+        self.anthropicKeyAccount = anthropicKeyAccount
+        self.openAIKeyAccount = openAIKeyAccount
         loadSettings()
     }
 
     // MARK: - Settings Persistence
     private func loadSettings() {
-        if let savedKey = KeychainHelper.retrieve(key: "anthropic_api_key") {
+        if let savedKey = KeychainHelper.retrieve(key: anthropicKeyAccount) {
             self.apiKey = savedKey
+        }
+
+        if let savedKey = KeychainHelper.retrieve(key: openAIKeyAccount) {
+            self.openAIAPIKey = savedKey
         }
 
         if let modeRaw = UserDefaults.standard.string(forKey: "selectedMode"),
@@ -53,7 +71,7 @@ final class AppState {
     }
 
     private func saveAPIKey(_ key: String) {
-        KeychainHelper.save(key: "anthropic_api_key", value: key)
+        KeychainHelper.save(key: anthropicKeyAccount, value: key)
     }
 
     // MARK: - Error Management
@@ -150,17 +168,22 @@ enum AppError: LocalizedError {
 
 // MARK: - Keychain Helper
 struct KeychainHelper {
-    static func save(key: String, value: String) {
-        let data = value.data(using: .utf8) ?? Data()
-
+    @discardableResult
+    static func save(key: String, value: String) -> Bool {
+        guard let data = value.data(using: .utf8) else { return false }
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrAccount as String: key,
-            kSecValueData as String: data,
         ]
+        let update: [String: Any] = [kSecValueData as String: data]
 
-        SecItemDelete(query as CFDictionary)
-        SecItemAdd(query as CFDictionary, nil)
+        let updateStatus = SecItemUpdate(query as CFDictionary, update as CFDictionary)
+        if updateStatus == errSecSuccess { return true }
+        guard updateStatus == errSecItemNotFound else { return false }
+
+        var addQuery = query
+        addQuery[kSecValueData as String] = data
+        return SecItemAdd(addQuery as CFDictionary, nil) == errSecSuccess
     }
 
     static func retrieve(key: String) -> String? {

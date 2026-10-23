@@ -65,15 +65,17 @@ class APIClient {
         url: URL,
         headers: [String: String],
         fileURL: URL,
-        paramName: String
+        paramName: String,
+        otherParams: [String: String]
     ) async throws -> T {
         let boundary = UUID().uuidString
-        let request = createMultipartRequest(
+        let request = try createMultipartRequest(
             url: url,
             boundary: boundary,
+            headers: headers,
             fileURL: fileURL,
             paramName: paramName,
-            otherParams: [:]
+            otherParams: otherParams
         )
 
         Logger.debug("Multipart upload sent", category: Logger.api)
@@ -100,15 +102,17 @@ class APIClient {
     }
 
     // MARK: - Helper Methods
-    private func createMultipartRequest(
+    func createMultipartRequest(
         url: URL,
         boundary: String,
+        headers: [String: String],
         fileURL: URL,
         paramName: String,
         otherParams: [String: String]
-    ) -> URLRequest {
+    ) throws -> URLRequest {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
+        request.allHTTPHeaderFields = headers
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
 
         var body = Data()
@@ -116,11 +120,15 @@ class APIClient {
         // Add file
         body.append("--\(boundary)\r\n".data(using: .utf8) ?? Data())
         body.append("Content-Disposition: form-data; name=\"\(paramName)\"; filename=\"\(fileURL.lastPathComponent)\"\r\n".data(using: .utf8) ?? Data())
-        body.append("Content-Type: audio/mp4\r\n\r\n".data(using: .utf8) ?? Data())
-
-        if let fileData = try? Data(contentsOf: fileURL) {
-            body.append(fileData)
+        let contentType: String
+        switch fileURL.pathExtension.lowercased() {
+        case "wav": contentType = "audio/wav"
+        case "mp3": contentType = "audio/mpeg"
+        case "m4a": contentType = "audio/mp4"
+        default: contentType = "application/octet-stream"
         }
+        body.append("Content-Type: \(contentType)\r\n\r\n".data(using: .utf8) ?? Data())
+        body.append(try Data(contentsOf: fileURL))
 
         body.append("\r\n".data(using: .utf8) ?? Data())
 

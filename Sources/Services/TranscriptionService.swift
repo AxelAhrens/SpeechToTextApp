@@ -19,11 +19,11 @@ final class TranscriptionService {
         setupRecorderSubscriptions()
     }
 
-    func startTranscription(mode: TranscriptionMode, apiKey: String) {
+    func startTranscription() {
         audioRecorder.startRecording()
     }
 
-    func stopTranscriptionAndProcess(mode: TranscriptionMode, apiKey: String) async {
+    func stopTranscriptionAndProcess(mode: TranscriptionMode, credentials: ProviderCredentials) async {
         guard let audioURL = audioRecorder.stopRecording() else {
             error = .recordingFailed("No audio recorded")
             return
@@ -35,7 +35,7 @@ final class TranscriptionService {
         do {
             let transcription = try await whisperAPI.transcribeAudio(
                 fileURL: audioURL,
-                apiKey: apiKey
+                apiKey: credentials.openAIKey
             )
 
             lastTranscription = transcription
@@ -44,7 +44,7 @@ final class TranscriptionService {
             let processedText = try await processTextForMode(
                 transcription,
                 mode: mode,
-                apiKey: apiKey
+                apiKey: credentials.anthropicKey
             )
 
             lastProcessedText = processedText

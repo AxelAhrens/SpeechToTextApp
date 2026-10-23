@@ -34,7 +34,7 @@ struct SpeechToTextApp: App {
             .receive(on: DispatchQueue.main)
             .sink { mode in
                 appState.selectedMode = mode
-                transcriptionService.startTranscription(mode: mode, apiKey: appState.apiKey)
+                transcriptionService.startTranscription()
             }
             .store(in: &subscriptions)
 
@@ -44,7 +44,7 @@ struct SpeechToTextApp: App {
                 Task {
                     await transcriptionService.stopTranscriptionAndProcess(
                         mode: mode,
-                        apiKey: appState.apiKey
+                        credentials: ProviderCredentials(appState: appState)
                     )
                 }
             }
